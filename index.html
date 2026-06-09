@@ -5,31 +5,81 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multiplication Madness</title>
     <style>
-        /* Styling for the new dynamic plate containers */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f9f9f9;
+            color: #333;
+        }
+        header {
+            text-align: center;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        /* Win Counter & Timer Dashboard Styling */
+        .score-dashboard {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            margin: 20px 0;
+            font-size: 18px;
+            font-weight: bold;
+            flex-wrap: wrap;
+        }
+        .stat-box {
+            background: #fff;
+            padding: 10px 20px;
+            border-radius: 6px;
+            border: 2px solid #e0e0e0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        }
+        .stat-box.streak {
+            border-color: #52c41a;
+            background: #f6ffed;
+            color: #389e0d;
+        }
+        .stat-box.timer-box {
+            border-color: #faad14;
+            background: #fffbe6;
+            color: #d46b08;
+            min-width: 160px;
+            text-align: center;
+        }
+        /* Dynamic plate container grid */
         .plate-container {
             display: flex;
             flex-wrap: wrap;
             gap: 15px;
             margin: 15px 0;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            min-height: 150px;
+            border: 1px solid #e8e8e8;
         }
         .food-plate {
             border: 2px dashed #0070f3;
             border-radius: 50%;
             width: 130px;
             height: 130px;
-            background: #fff;
+            background: #fafafa;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 10px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-            transition: background 0.2s;
-            position: relative;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.03);
+            transition: all 0.2s;
         }
         .food-plate.drag-over {
             background: #e6f7ff;
             border-color: #1890ff;
+            transform: scale(1.05);
         }
         .plate-label {
             font-size: 11px;
@@ -46,13 +96,26 @@
             max-width: 110px;
         }
         .tray-item {
-            border: 1px solid gray;
-            padding: 2px 4px;
+            border: 1px solid #d9d9d9;
+            padding: 2px 5px;
             font-size: 12px;
-            background: #eee;
+            background: #fff;
             cursor: pointer;
             border-radius: 4px;
             user-select: none;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+        .tray-item:hover {
+            border-color: #ff4d4f;
+            color: #ff4d4f;
+            background: #fff1f0;
+        }
+        .menu-items-container {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e8e8e8;
+            margin-bottom: 15px;
         }
     </style>
 </head>
@@ -60,60 +123,67 @@
 
     <header>
         <h1>Multiplication Madness</h1>
-        <p>Practice multiplication and English conversation from the book, Minnie's Diner!</p>
-        <button id="start-game-btn" onclick="openWelcomeDialog()">Start Game</button>
+        <p>Practice multiplication groupings and English conversation modeled after <em>Minnie's Diner</em>!</p>
+        <button id="start-game-btn" style="padding: 10px 20px; font-size: 16px; cursor: pointer;" onclick="openWelcomeDialog()">Start Game</button>
     </header>
 
-    <hr>
+    <div class="score-dashboard">
+        <div class="stat-box">Total Wins: <span id="total-wins-count">0</span></div>
+        <div class="stat-box streak">🔥 Current Streak: <span id="current-streak-count">0</span></div>
+        <div class="stat-box timer-box">⏳ Time Left: <span id="timer-countdown">--</span>s</div>
+    </div>
 
-    <dialog id="welcome-dialog">
+    <dialog id="welcome-dialog" style="padding: 20px; border-radius: 8px; border: 1px solid #ccc; max-width: 500px;">
         <h2>Welcome to Multiplication Madness</h2>
-        <p>In this game, you will act as a waiter.</p>
+        <p>In this game, you will act as a waiter at Minnie's Diner.</p>
         <ul>
             <li>Listen to the Customer's grouped order in English.</li>
-            <li>Drag and drop the correct food items onto each specific **plate**.</li>
-            <li>Calculate the total price correctly to practice your multiplication groups.</li>
-            <li>Chat with the customer in English to keep them happy!</li>
-            <li><strong>Tip: Click an item on a plate if you want to remove it!</strong></li>
+            <li>Drag and drop the food items onto each specific **plate**.</li>
+            <li>Calculate the total price correctly before the **Timer** runs out!</li>
+            <li><strong>Winning auto-starts the next customer round immediately!</strong></li>
+            <li><em>Tip: Click any item on a plate if you want to remove it!</em></li>
         </ul>
-        <button onclick="closeWelcomeDialog()">Let's Play!</button>
+        <button style="padding: 8px 16px; cursor: pointer;" onclick="closeWelcomeDialog()">Let's Play!</button>
     </dialog>
 
     <main>
         <section>
             <h2>1. The Customer Order</h2>
-            <div id="order-text"><em>Click "Generate Order" to start...</em></div>
-            <button id="generate-order-btn" onclick="generateAIOrder()">Generate AI Order</button>
+            <div id="order-text" style="background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #e8e8e8; font-size: 16px; margin-bottom: 10px;">
+                <em>Click "Generate Order" to start...</em>
+            </div>
+            <button id="generate-order-btn" style="padding: 8px 16px; cursor: pointer;" onclick="generateAIOrder()">Generate AI Order</button>
 
             <h2>2. Assemble Order (Drag onto Plates)</h2>
-            <div>
-                <div class="draggable-item" draggable="true" data-item="Burger" style="border: 1px solid black; display: inline-block; padding: 5px; margin: 5px; cursor: grab;">🍔 Burger ($5)</div>
-                <div class="draggable-item" draggable="true" data-item="Fries" style="border: 1px solid black; display: inline-block; padding: 5px; margin: 5px; cursor: grab;">🍟 Fries ($3)</div>
-                <div class="draggable-item" draggable="true" data-item="Soda" style="border: 1px solid black; display: inline-block; padding: 5px; margin: 5px; cursor: grab;">🥤 Soda ($2)</div>
+            <div class="menu-items-container">
+                <strong>Menu Dispensers:</strong><br><br>
+                <div class="draggable-item" draggable="true" data-item="Burger" style="border: 1px solid black; display: inline-block; padding: 8px 12px; margin: 5px; cursor: grab; background: #fff; border-radius: 4px;">🍔 Burger ($5)</div>
+                <div class="draggable-item" draggable="true" data-item="Fries" style="border: 1px solid black; display: inline-block; padding: 8px 12px; margin: 5px; cursor: grab; background: #fff; border-radius: 4px;">🍟 Fries ($3)</div>
+                <div class="draggable-item" draggable="true" data-item="Soda" style="border: 1px solid black; display: inline-block; padding: 8px 12px; margin: 5px; cursor: grab; background: #fff; border-radius: 4px;">🥤 Soda ($2)</div>
             </div>
 
             <div id="plates-wrapper" class="plate-container">
-                <p style="color: #888; font-style: italic;">Plates will appear here once an order is generated...</p>
+                <p style="color: #888; font-style: italic; margin: auto;">Plates will appear here once an order is generated...</p>
             </div>
             
-            <div>
+            <div style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e8e8e8;">
                 <h2>3. Calculate Total Price</h2>
-                <label for="player-math">Total Price ($): </label>
-                <input type="number" id="player-math" placeholder="Your calculation">
-                <button onclick="checkOrderAndMath()">Submit Order</button>
+                <label for="player-math" style="font-weight: bold;">Total Price ($): </label>
+                <input type="number" id="player-math" style="padding: 6px; font-size: 16px; width: 140px;" placeholder="Your calculation">
+                <button id="submit-order-btn" style="padding: 6px 14px; font-size: 16px; cursor: pointer;" onclick="checkOrderAndMath()">Submit Order</button>
             </div>
         </section>
 
-        <hr>
+        <hr style="margin: 30px 0;">
 
-        <section>
+        <section style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e8e8e8;">
             <h2>Customer Conversation</h2>
-            <div id="chatLog" style="border: 1px solid black; height: 150px; overflow-y: scroll; padding: 10px; margin-bottom: 10px;">
+            <div id="chatLog" style="border: 1px solid #ccc; height: 150px; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #fafafa; border-radius: 4px;">
                 <p style="color: #888;">AI customer messages will appear here.</p>
             </div>
-            <div>
-                <input type="text" id="chatInput" placeholder="Talk to the customer..." onkeypress="if(event.key === 'Enter') sendChatMessage()">
-                <button id="send-chat-btn" onclick="sendChatMessage()">Send</button>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="chatInput" style="flex-grow: 1; padding: 8px;" placeholder="Talk to the customer..." onkeypress="if(event.key === 'Enter') sendChatMessage()">
+                <button id="send-chat-btn" style="padding: 8px 16px; cursor: pointer;" onclick="sendChatMessage()">Send</button>
             </div>
         </section>
     </main>
@@ -124,7 +194,13 @@
 
         // --- GAME STATE ---
         let currentOrderData = { rawGroups: [], expectedItemsList: [], totalCost: 0 };
-        let activePlatesData = {}; // Tracks item arrays dropped on each plate ID
+        let activePlatesData = {}; 
+        
+        // --- SCORE & TIMER TRACKING DATA ---
+        let totalWins = 0;
+        let currentStreak = 0;
+        let gameTimerInterval = null;
+        let secondsRemaining = 0;
 
         // --- DIALOG LOGIC ---
         const dialog = document.getElementById('welcome-dialog');
@@ -148,18 +224,16 @@
         // --- DYNAMICALLY GENERATE DROPPABLE PLATES ---
         function buildGamePlates(groups) {
             const wrapper = document.getElementById('plates-wrapper');
-            wrapper.innerHTML = ''; // Clean old assets
-            activePlatesData = {}; // Clear active layout tracking states
+            wrapper.innerHTML = ''; 
+            activePlatesData = {}; 
 
             let globalPlateCounter = 1;
 
             groups.forEach((group) => {
-                // For each group (e.g. 3 plates of Burgers), create that number of plates
                 for (let i = 0; i < group.plateCount; i++) {
                     const plateId = `plate-${globalPlateCounter}`;
-                    activePlatesData[plateId] = []; // Initialize empty array for this plate
+                    activePlatesData[plateId] = []; 
 
-                    // Build HTML Element Structure
                     const plateDiv = document.createElement('div');
                     plateDiv.className = 'food-plate';
                     plateDiv.id = plateId;
@@ -168,7 +242,6 @@
                         <div class="plate-items" id="${plateId}-items"></div>
                     `;
 
-                    // Setup Drag and Drop Event Loops for this plate instance
                     plateDiv.addEventListener('dragover', (e) => {
                         e.preventDefault();
                         plateDiv.classList.add('drag-over');
@@ -186,11 +259,8 @@
                         if (!draggingItem) return;
                         
                         const itemType = draggingItem.getAttribute('data-item');
-                        
-                        // Save into our tracking state array
                         activePlatesData[plateId].push(itemType);
                         
-                        // Render inside the specific plate item zone
                         const itemsZone = document.getElementById(`${plateId}-items`);
                         itemsZone.innerHTML += `<span class="tray-item" data-item="${itemType}" onclick="removeElementFromPlate('${plateId}', this)">× ${itemType}</span>`;
                     });
@@ -201,18 +271,49 @@
             });
         }
 
-        // --- REMOVE ELEMENT FROM SPECIFIC PLATE ON CLICK ---
         function removeElementFromPlate(plateId, element) {
             const itemType = element.getAttribute('data-item');
             const targetIndex = activePlatesData[plateId].indexOf(itemType);
-            
             if (targetIndex > -1) {
                 activePlatesData[plateId].splice(targetIndex, 1);
             }
             element.remove();
         }
 
-        // --- VERCEL PROXY AI API COMMUNICATION ---
+        // --- GAME TIMER CLOCK CONTROLLERS ---
+        function startNewRoundTimer() {
+            // Stop any active ongoing timers
+            clearInterval(gameTimerInterval);
+            
+            // Scaled base allocation timing windows (Shorter clocks for bigger streaks)
+            let allocatedSeconds = 50; 
+            if (currentStreak >= 3 && currentStreak < 6) {
+                allocatedSeconds = 40;
+            } else if (currentStreak >= 6) {
+                allocatedSeconds = 30; // High-intensity rush round!
+            }
+            
+            secondsRemaining = allocatedSeconds;
+            document.getElementById('timer-countdown').innerText = secondsRemaining;
+            
+            gameTimerInterval = setInterval(() => {
+                secondsRemaining--;
+                document.getElementById('timer-countdown').innerText = secondsRemaining;
+                
+                if (secondsRemaining <= 0) {
+                    clearInterval(gameTimerInterval);
+                    handleTimeOutLoss();
+                }
+            }, 1000);
+        }
+
+        function handleTimeOutLoss() {
+            currentStreak = 0;
+            updateScoreHUD();
+            alert("⏰ Time's up! The customer got tired of waiting and left the diner.\n\nStreak reset to 0!");
+            generateAIOrder(); // Bring in a fresh customer
+        }
+
         async function callGemini(promptText) {
             try {
                 const response = await fetch(VERCEL_PROXY_URL, {
@@ -220,40 +321,49 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ promptText: promptText })
                 });
-                
                 const data = await response.json();
-                
                 if (data.text) return data.text;
                 if (data.reply) return data.reply;
                 return typeof data === 'string' ? data : JSON.stringify(data);
             } catch (error) {
-                console.error("Proxy Connection Error Trace:", error);
+                console.error("Proxy Connection Error:", error);
                 return null;
             }
         }
 
-        // --- GAME ACTIONS ---
+        // --- GAME ACTIONS WITH ADAPTIVE STREAK DIFFICULTY ---
         async function generateAIOrder() {
             const orderTextElement = document.getElementById('order-text');
             const genBtn = document.getElementById('generate-order-btn');
             
+            // Stop the timer while the AI thinks so the player isn't penalized for network lag
+            clearInterval(gameTimerInterval);
+            document.getElementById('timer-countdown').innerText = "--";
+
             genBtn.disabled = true;
-            orderTextElement.innerHTML = "<em>Customer is deciding on plates...</em>";
+            orderTextElement.innerHTML = "<em>Customer is walking into the diner...</em>";
             
-            const prompt = `You are a hungry customer at a restaurant. Order food grouped into plates to show groups of multiplication.
-            Randomly choose 1 or 2 different items to order using these specific prices: Burgers ($5), Fries ($3), Soda ($2).
+            let difficultyContext = "Keep the math tiny: Choose a total of 2-3 plates, and 1-2 items per plate.";
+            if (currentStreak >= 3 && currentStreak < 6) {
+                difficultyContext = "Increase complexity: Choose a total of 4-6 plates, and 2-4 items per plate.";
+            } else if (currentStreak >= 6) {
+                difficultyContext = "Minnie's Madness Mode! Generate a huge order: 6-10 total plates with 4-6 items per plate to test advanced multiplication!";
+            }
             
-            You MUST describe your order structural grouped layout using plates. For example: "I would like 3 plates of 2 Burgers, and 2 plates of 1 Soda."
-            You MUST respond with a single, raw valid JSON object. Do not wrap it in markdown block tags.
+            const prompt = `You are a customer sitting down at Minnie's Diner. Order food grouped clearly into plates.
+            Available items and exact prices: Burgers ($5), Fries ($3), Soda ($2).
             
-            Use this exact JSON structural layout:
+            DIFFICULTY SCALING LEVEL: ${difficultyContext}
+            
+            You MUST speak in character as a diner customer. You MUST respond with a single, raw valid JSON object. Do not wrap it in markdown block tags.
+            
+            Use this exact key layout pattern:
             {
-              "displayStory": "Hello! I'm starving. Give me 3 plates of 2 Burgers, and 2 plates of 1 Soda, please!",
+              "displayStory": "We have a big table! Give us 4 plates of 3 Burgers, please!",
               "groups": [
-                {"plateCount": 3, "itemPerPlateCount": 2, "itemType": "Burger"},
-                {"plateCount": 2, "itemPerPlateCount": 1, "itemType": "Soda"}
+                {"plateCount": 4, "itemPerPlateCount": 3, "itemType": "Burger"}
               ],
-              "totalCost": 34
+              "totalCost": 60
             }`;
 
             const aiResponse = await callGemini(prompt);
@@ -275,8 +385,6 @@
                 }
 
                 const parsedData = JSON.parse(cleanText);
-                
-                // Unpack structural items checklist array maps
                 let fullItemsList = [];
                 const groupsArray = Array.isArray(parsedData.groups) ? parsedData.groups : [];
                 
@@ -295,27 +403,28 @@
                 };
                 
                 orderTextElement.innerHTML = `<strong>Customer says:</strong> "${currentOrderData.displayStory}"`;
-                
-                // Build dynamic plate spaces
                 buildGamePlates(currentOrderData.rawGroups);
                 document.getElementById('player-math').value = '';
                 
                 document.getElementById('chatLog').innerHTML = '<p style="color: #888;">AI customer messages will appear here.</p>';
                 appendChatMessage("Customer", currentOrderData.displayStory);
+                
+                // Start the round countdown now that everything is fully rendered
+                startNewRoundTimer();
             } catch(e) {
-                orderTextElement.innerHTML = `<strong style="color:red;">Parse Error!</strong><br>
-                <strong>What Gemini actually sent:</strong><br> 
-                <pre style="background: #fee; padding: 10px; border: 1px solid red; white-space: pre-wrap; text-align: left; font-family: monospace;">${aiResponse}</pre>
-                Please click 'Generate AI Order' to try again.`;
-                console.error("Raw Response Parse Dump:", aiResponse);
+                orderTextElement.innerHTML = `<strong style="color:red;">Parse Error!</strong><br><pre>${aiResponse}</pre>`;
+                console.error(e);
             }
         }
 
+        // --- MATH AND LAYOUT VALIDATION LOOP ---
         function checkOrderAndMath() {
+            // Pause countdown during evaluation alert prompt focus state
+            clearInterval(gameTimerInterval);
+
             const playerPrice = parseInt(document.getElementById('player-math').value);
             const isMathCorrect = (playerPrice === currentOrderData.totalCost);
             
-            // Collect all items across all active user plates
             let totalServedItems = [];
             Object.keys(activePlatesData).forEach(plateId => {
                 totalServedItems = totalServedItems.concat(activePlatesData[plateId]);
@@ -326,13 +435,42 @@
             const isTrayCorrect = JSON.stringify(expectedSorted) === JSON.stringify(actualSorted);
 
             if (isMathCorrect && isTrayCorrect) {
-                alert("🎉 Brilliant! Every item is placed cleanly on its correct group plate layout, and your multiplication is perfect!");
+                totalWins++;
+                currentStreak++;
+                updateScoreHUD();
+                
+                // Clicking "OK" here instantly fires the refresh function sequence!
+                alert(`🎉 Excellent! Every plate layout is served perfectly and your multiplication price match is correct!\n\nStreak increased to ${currentStreak}! Let's check out the next order.`);
+                generateAIOrder(); 
             } else {
-                let errorMsg = "Oops! Check your plate layouts:\n";
+                currentStreak = 0;
+                updateScoreHUD();
+                
+                let errorMsg = "Oops! Check your work:\n";
                 if(!isTrayCorrect) errorMsg += `- Total food items distributed on your plates do not match the customer's request.\n`;
                 if(!isMathCorrect) errorMsg += `- Your final grouped multiplication price math is incorrect.\n`;
+                errorMsg += `\nStreak reset to 0! Try again to build your streak back up!`;
                 alert(errorMsg);
+                
+                // Resume whatever time was remaining if they failed but still have ticks left
+                if (secondsRemaining > 0) {
+                    gameTimerInterval = setInterval(() => {
+                        secondsRemaining--;
+                        document.getElementById('timer-countdown').innerText = secondsRemaining;
+                        if (secondsRemaining <= 0) {
+                            clearInterval(gameTimerInterval);
+                            handleTimeOutLoss();
+                        }
+                    }, 1000);
+                } else {
+                    generateAIOrder();
+                }
             }
+        }
+
+        function updateScoreHUD() {
+            document.getElementById('total-wins-count').innerText = totalWins;
+            document.getElementById('current-streak-count').innerText = currentStreak;
         }
 
         async function sendChatMessage() {
@@ -345,8 +483,8 @@
             appendChatMessage("You", message);
             inputEl.value = '';
 
-            const prompt = `You are a customer sitting at a cafe table waiting for your plate order. A student waiter is practicing English.
-            They just said: "${message}". Respond naturally as a cafe diner customer. Max 2 sentences.`;
+            const prompt = `You are a customer sitting at a table waiting for your plate order. A student waiter is practicing English.
+            They just said: "${message}". Respond naturally as a diner customer. Max 2 sentences.`;
 
             const aiReply = await callGemini(prompt);
             chatBtn.disabled = false;
