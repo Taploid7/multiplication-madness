@@ -10,13 +10,11 @@
     <header>
         <h1>AI Cafe Simulator</h1>
         <p>Practice multiplication and English conversation simultaneously!</p>
-        <!-- Start Game Button -->
         <button id="start-game-btn" onclick="openWelcomeDialog()">Start Game</button>
     </header>
 
     <hr>
 
-    <!-- Welcome Dialogue Box (Pop-up Window) -->
     <dialog id="welcome-dialog">
         <h2>Welcome to my Multiplication Game</h2>
         <p>In this game, you will act as a waiter.</p>
@@ -25,32 +23,28 @@
             <li>Drag and drop the correct food items onto the tray.</li>
             <li>Calculate the total price correctly to practice your multiplication.</li>
             <li>Chat with the customer in English to keep them happy!</li>
+            <li><strong>Tip: Click an item on the tray if you want to remove it!</strong></li>
         </ul>
         <button onclick="closeWelcomeDialog()">Let's Play!</button>
     </dialog>
 
-    <!-- Main Game UI -->
     <main>
-        <!-- Left Side: Order & Kitchen Management -->
         <section>
             <h2>1. The Customer Order</h2>
             <div id="order-text"><em>Click "Generate Order" to start...</em></div>
             <button onclick="generateAIOrder()">Generate AI Order</button>
 
             <h2>2. Assemble Order (Drag & Drop)</h2>
-            <!-- Draggable Vault -->
             <div>
                 <div class="draggable-item" draggable="true" data-item="Burger" style="border: 1px solid black; display: inline-block; padding: 5px; margin: 5px; cursor: grab;">🍔 Burger ($5)</div>
                 <div class="draggable-item" draggable="true" data-item="Fries" style="border: 1px solid black; display: inline-block; padding: 5px; margin: 5px; cursor: grab;">🍟 Fries ($3)</div>
                 <div class="draggable-item" draggable="true" data-item="Soda" style="border: 1px solid black; display: inline-block; padding: 5px; margin: 5px; cursor: grab;">🥤 Soda ($2)</div>
             </div>
 
-            <!-- Drop Zone Area -->
             <div id="serving-tray" style="border: 2px dashed gray; min-height: 50px; margin: 15px 0; padding: 10px;">
                 Drop items here to serve!
             </div>
             
-            <!-- Math Calculation Area -->
             <div>
                 <h2>3. Calculate Total Price</h2>
                 <label for="player-math">Total Price ($): </label>
@@ -61,7 +55,6 @@
 
         <hr>
 
-        <!-- Right Side: AI Chat/English Scenarios -->
         <section>
             <h2>Customer Conversation</h2>
             <div id="chatLog" style="border: 1px solid black; height: 150px; overflow-y: scroll; padding: 10px; margin-bottom: 10px;">
@@ -86,12 +79,12 @@
         const dialog = document.getElementById('welcome-dialog');
 
         function openWelcomeDialog() {
-            dialog.showModal(); // Opens the dialog block natively as a pop-up window
+            dialog.showModal(); 
         }
 
         function closeWelcomeDialog() {
-            dialog.close(); // Closes the dialog box
-            generateAIOrder(); // Automatically trigger the first order when they start
+            dialog.close(); 
+            generateAIOrder(); 
         }
 
         // --- DRAG AND DROP LOGIC ---
@@ -116,7 +109,31 @@
             trayItems.push(itemType);
             
             if(dropZone.innerText.includes("Drop items here")) dropZone.innerText = "";
-            dropZone.innerHTML += `<span style="border: 1px solid gray; padding: 2px; margin-right: 5px; background: #eee;">${itemType}</span>`;
+            
+            // Render item with a custom class and styling indicating it can be clicked to be deleted
+            dropZone.innerHTML += `<span class="tray-item" data-item="${itemType}" style="border: 1px solid gray; padding: 2px 6px; margin-right: 5px; background: #eee; cursor: pointer; display: inline-block; border-radius: 4px;" title="Click to remove">× ${itemType}</span>`;
+        });
+
+        // --- NEW FEATURE: CLICK TO DELETE ITEM FROM TRAY ---
+        dropZone.addEventListener('click', e => {
+            const clickedSpan = e.target.closest('.tray-item');
+            if (!clickedSpan) return;
+
+            const itemType = clickedSpan.getAttribute('data-item');
+            
+            // Remove the first occurrence of this item from the tracking array
+            const targetIndex = trayItems.indexOf(itemType);
+            if (targetIndex > -1) {
+                trayItems.splice(targetIndex, 1);
+            }
+
+            // Remove the visual element from the screen
+            clickedSpan.remove();
+
+            // If the tray is now completely empty, reset the placeholder text
+            if (trayItems.length === 0) {
+                dropZone.innerText = "Drop items here to serve!";
+            }
         });
 
         // --- VERCEL PROXY AI API COMMUNICATION ---
@@ -129,10 +146,16 @@
                 });
                 
                 const data = await response.json();
-                return data.candidates[0].content.parts[0].text;
+                
+                if (data.reply) return data.reply;
+                if (data.text) return data.text;
+                if (data.candidates && data.candidates[0].content.parts[0].text) {
+                    return data.candidates[0].content.parts[0].text;
+                }
+                return typeof data === 'string' ? data : JSON.stringify(data);
             } catch (error) {
                 console.error("Proxy Error:", error);
-                return "Error connecting to AI via backend proxy.";
+                return null;
             }
         }
 
@@ -141,30 +164,46 @@
             const orderTextElement = document.getElementById('order-text');
             orderTextElement.innerHTML = "<em>Customer is thinking...</em>";
             
-            const prompt = `You are a customer ordering food at a basic cafe. 
-            Choose a random combination of: Burgers ($5 each), Fries ($3 each), and Soda ($2 each).
-            Format your response exactly like this JSON layout so my code can parse it:
-            {"displayStory": "Hi! Can I get 3 Burgers and 2 Sodas please?", "items": ["Burger", "Burger", "Burger", "Soda", "Soda"], "totalCost": 19}
-            Do not include markdown code block formatting (like \`\`\`json). Just the raw object text.`;
+            const prompt = `You are a customer ordering food at a basic cafe.
+            Choose a random combination of food options: Burgers ($5 each), Fries ($3 each), and Soda ($2 each).
+            You MUST respond with a single, raw valid JSON object. Do not include introductory text. Do not wrap it in markdown block tags like \`\`\`json.
+            
+            Use this exact key structural layout:
+            {"displayStory": "Hello! Could I get 2 Burgers and a Soda please?", "items": ["Burger", "Burger", "Soda"], "totalCost": 12}`;
 
             const aiResponse = await callGemini(prompt);
-            if (!aiResponse) return;
+            if (!aiResponse) {
+                orderTextElement.innerHTML = "Error connecting to AI proxy backend.";
+                return;
+            }
 
             try {
-                const cleanedResponse = aiResponse.replace(/```json|```/g, "").trim();
-                currentOrderData = JSON.parse(cleanedResponse);
+                // Advanced RegEx cleaner targeting stray markdown brackets hidden inside text streams
+                let cleanText = aiResponse.trim();
+                if (cleanText.includes("```")) {
+                    cleanText = cleanText.replace(/```json/gi, "").replace(/```/g, "").trim();
+                }
+                
+                // If text still contains non-JSON junk strings before/after the bracket matches:
+                const startBracket = cleanText.indexOf("{");
+                const endBracket = cleanText.lastIndexOf("}");
+                if (startBracket !== -1 && endBracket !== -1) {
+                    cleanText = cleanText.substring(startBracket, endBracket + 1);
+                }
+
+                currentOrderData = JSON.parse(cleanText);
                 
                 orderTextElement.innerHTML = `<strong>Customer says:</strong> "${currentOrderData.displayStory}"`;
                 
-                // Reset game board
+                // Reset game board configuration
                 trayItems = [];
                 dropZone.innerHTML = "Drop items here to serve!";
                 document.getElementById('player-math').value = '';
                 
                 appendChatMessage("Customer", currentOrderData.displayStory);
             } catch(e) {
-                orderTextElement.innerHTML = "Failed to parse AI response. Try generating again.";
-                console.log("Failed parsing: ", aiResponse);
+                orderTextElement.innerHTML = "Failed to parse AI response formatting. Click 'Generate AI Order' to attempt a clean retry.";
+                console.log("Raw Response Dump:", aiResponse);
             }
         }
 
@@ -198,7 +237,11 @@
             They just said: "${message}". Respond nicely as a customer, keeping your vocabulary suitable for an English learner. Max 2 sentences.`;
 
             const aiReply = await callGemini(prompt);
-            if(aiReply) appendChatMessage("Customer", aiReply.trim());
+            if(aiReply) {
+                appendChatMessage("Customer", aiReply.trim());
+            } else {
+                appendChatMessage("System", "Customer didn't hear you. Try again.");
+            }
         }
 
         function appendChatMessage(sender, text) {
