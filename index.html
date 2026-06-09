@@ -4,6 +4,57 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multiplication Madness</title>
+    <style>
+        /* Styling for the new dynamic plate containers */
+        .plate-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .food-plate {
+            border: 2px dashed #0070f3;
+            border-radius: 50%;
+            width: 130px;
+            height: 130px;
+            background: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: background 0.2s;
+            position: relative;
+        }
+        .food-plate.drag-over {
+            background: #e6f7ff;
+            border-color: #1890ff;
+        }
+        .plate-label {
+            font-size: 11px;
+            color: #555;
+            font-weight: bold;
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+        .plate-items {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2px;
+            max-width: 110px;
+        }
+        .tray-item {
+            border: 1px solid gray;
+            padding: 2px 4px;
+            font-size: 12px;
+            background: #eee;
+            cursor: pointer;
+            border-radius: 4px;
+            user-select: none;
+        }
+    </style>
 </head>
 <body>
 
@@ -19,11 +70,11 @@
         <h2>Welcome to Multiplication Madness</h2>
         <p>In this game, you will act as a waiter.</p>
         <ul>
-            <li>Listen to the Customer's order in English.</li>
-            <li>Drag and drop the correct food items onto the tray.</li>
-            <li>Calculate the total price correctly to practice your multiplication.</li>
+            <li>Listen to the Customer's grouped order in English.</li>
+            <li>Drag and drop the correct food items onto each specific **plate**.</li>
+            <li>Calculate the total price correctly to practice your multiplication groups.</li>
             <li>Chat with the customer in English to keep them happy!</li>
-            <li><strong>Tip: Click an item on the tray if you want to remove it!</strong></li>
+            <li><strong>Tip: Click an item on a plate if you want to remove it!</strong></li>
         </ul>
         <button onclick="closeWelcomeDialog()">Let's Play!</button>
     </dialog>
@@ -34,15 +85,15 @@
             <div id="order-text"><em>Click "Generate Order" to start...</em></div>
             <button id="generate-order-btn" onclick="generateAIOrder()">Generate AI Order</button>
 
-            <h2>2. Assemble Order (Drag & Drop)</h2>
+            <h2>2. Assemble Order (Drag onto Plates)</h2>
             <div>
                 <div class="draggable-item" draggable="true" data-item="Burger" style="border: 1px solid black; display: inline-block; padding: 5px; margin: 5px; cursor: grab;">🍔 Burger ($5)</div>
                 <div class="draggable-item" draggable="true" data-item="Fries" style="border: 1px solid black; display: inline-block; padding: 5px; margin: 5px; cursor: grab;">🍟 Fries ($3)</div>
                 <div class="draggable-item" draggable="true" data-item="Soda" style="border: 1px solid black; display: inline-block; padding: 5px; margin: 5px; cursor: grab;">🥤 Soda ($2)</div>
             </div>
 
-            <div id="serving-tray" style="border: 2px dashed gray; min-height: 50px; margin: 15px 0; padding: 10px;">
-                Drop items here to serve!
+            <div id="plates-wrapper" class="plate-container">
+                <p style="color: #888; font-style: italic;">Plates will appear here once an order is generated...</p>
             </div>
             
             <div>
@@ -72,10 +123,10 @@
         const VERCEL_PROXY_URL = 'https://game1-git-main-taploid7s-projects.vercel.app/api/chat';
 
         // --- GAME STATE ---
-        let currentOrderData = { items: [], totalCost: 0 };
-        let trayItems = [];
+        let currentOrderData = { rawGroups: [], expectedItemsList: [], totalCost: 0 };
+        let activePlatesData = {}; // Tracks item arrays dropped on each plate ID
 
-        // --- DIALOG / WINDOW LOGIC ---
+        // --- DIALOG LOGIC ---
         const dialog = document.getElementById('welcome-dialog');
 
         function openWelcomeDialog() {
@@ -87,50 +138,79 @@
             generateAIOrder(); 
         }
 
-        // --- DRAG AND DROP LOGIC ---
+        // --- SETUP DRAGGABLE LISTENER HOOKS ---
         const draggables = document.querySelectorAll('.draggable-item');
-        const dropZone = document.getElementById('serving-tray');
-
         draggables.forEach(draggable => {
             draggable.addEventListener('dragstart', () => draggable.classList.add('dragging'));
             draggable.addEventListener('dragend', () => draggable.classList.remove('dragging'));
         });
 
-        dropZone.addEventListener('dragover', e => {
-            e.preventDefault();
-        });
+        // --- DYNAMICALLY GENERATE DROPPABLE PLATES ---
+        function buildGamePlates(groups) {
+            const wrapper = document.getElementById('plates-wrapper');
+            wrapper.innerHTML = ''; // Clean old assets
+            activePlatesData = {}; // Clear active layout tracking states
 
-        dropZone.addEventListener('drop', e => {
-            e.preventDefault();
-            const draggingItem = document.querySelector('.dragging');
-            if (!draggingItem) return;
-            
-            const itemType = draggingItem.getAttribute('data-item');
-            trayItems.push(itemType);
-            
-            if(dropZone.innerText.includes("Drop items here")) dropZone.innerText = "";
-            
-            dropZone.innerHTML += `<span class="tray-item" data-item="${itemType}" style="border: 1px solid gray; padding: 2px 6px; margin-right: 5px; background: #eee; cursor: pointer; display: inline-block; border-radius: 4px;" title="Click to remove">× ${itemType}</span>`;
-        });
+            let globalPlateCounter = 1;
 
-        // --- CLICK TO DELETE ELEMENT MECHANIC ---
-        dropZone.addEventListener('click', e => {
-            const clickedSpan = e.target.closest('.tray-item');
-            if (!clickedSpan) return;
+            groups.forEach((group) => {
+                // For each group (e.g. 3 plates of Burgers), create that number of plates
+                for (let i = 0; i < group.plateCount; i++) {
+                    const plateId = `plate-${globalPlateCounter}`;
+                    activePlatesData[plateId] = []; // Initialize empty array for this plate
 
-            const itemType = clickedSpan.getAttribute('data-item');
+                    // Build HTML Element Structure
+                    const plateDiv = document.createElement('div');
+                    plateDiv.className = 'food-plate';
+                    plateDiv.id = plateId;
+                    plateDiv.innerHTML = `
+                        <div class="plate-label">Plate ${globalPlateCounter}</div>
+                        <div class="plate-items" id="${plateId}-items"></div>
+                    `;
+
+                    // Setup Drag and Drop Event Loops for this plate instance
+                    plateDiv.addEventListener('dragover', (e) => {
+                        e.preventDefault();
+                        plateDiv.classList.add('drag-over');
+                    });
+
+                    plateDiv.addEventListener('dragleave', () => {
+                        plateDiv.classList.remove('drag-over');
+                    });
+
+                    plateDiv.addEventListener('drop', (e) => {
+                        e.preventDefault();
+                        plateDiv.classList.remove('drag-over');
+                        
+                        const draggingItem = document.querySelector('.dragging');
+                        if (!draggingItem) return;
+                        
+                        const itemType = draggingItem.getAttribute('data-item');
+                        
+                        // Save into our tracking state array
+                        activePlatesData[plateId].push(itemType);
+                        
+                        // Render inside the specific plate item zone
+                        const itemsZone = document.getElementById(`${plateId}-items`);
+                        itemsZone.innerHTML += `<span class="tray-item" data-item="${itemType}" onclick="removeElementFromPlate('${plateId}', this)">× ${itemType}</span>`;
+                    });
+
+                    wrapper.appendChild(plateDiv);
+                    globalPlateCounter++;
+                }
+            });
+        }
+
+        // --- REMOVE ELEMENT FROM SPECIFIC PLATE ON CLICK ---
+        function removeElementFromPlate(plateId, element) {
+            const itemType = element.getAttribute('data-item');
+            const targetIndex = activePlatesData[plateId].indexOf(itemType);
             
-            const targetIndex = trayItems.indexOf(itemType);
             if (targetIndex > -1) {
-                trayItems.splice(targetIndex, 1);
+                activePlatesData[plateId].splice(targetIndex, 1);
             }
-
-            clickedSpan.remove();
-
-            if (trayItems.length === 0) {
-                dropZone.innerText = "Drop items here to serve!";
-            }
-        });
+            element.remove();
+        }
 
         // --- VERCEL PROXY AI API COMMUNICATION ---
         async function callGemini(promptText) {
@@ -158,14 +238,23 @@
             const genBtn = document.getElementById('generate-order-btn');
             
             genBtn.disabled = true;
-            orderTextElement.innerHTML = "<em>Customer is thinking...</em>";
+            orderTextElement.innerHTML = "<em>Customer is deciding on plates...</em>";
             
-            const prompt = `You are a customer ordering food at a basic cafe.
-            Choose a random combination of food options: Burgers ($5 each), Fries ($3 each), and Soda ($2 each).
-            You MUST respond with a single, raw valid JSON object. Do not include introductory text. Do not wrap it in markdown block tags.
+            const prompt = `You are a hungry customer at a restaurant. Order food grouped into plates to show groups of multiplication.
+            Randomly choose 1 or 2 different items to order using these specific prices: Burgers ($5), Fries ($3), Soda ($2).
             
-            Use this exact key structural layout:
-            {"displayStory": "Hello! Could I get 2 Burgers and a Soda please?", "items": ["Burger", "Burger", "Soda"], "totalCost": 12}`;
+            You MUST describe your order structural grouped layout using plates. For example: "I would like 3 plates of 2 Burgers, and 2 plates of 1 Soda."
+            You MUST respond with a single, raw valid JSON object. Do not wrap it in markdown block tags.
+            
+            Use this exact JSON structural layout:
+            {
+              "displayStory": "Hello! I'm starving. Give me 3 plates of 2 Burgers, and 2 plates of 1 Soda, please!",
+              "groups": [
+                {"plateCount": 3, "itemPerPlateCount": 2, "itemType": "Burger"},
+                {"plateCount": 2, "itemPerPlateCount": 1, "itemType": "Soda"}
+              ],
+              "totalCost": 34
+            }`;
 
             const aiResponse = await callGemini(prompt);
             genBtn.disabled = false;
@@ -177,11 +266,8 @@
 
             try {
                 let cleanText = aiResponse.trim();
-                
-                // Clean out any standard markdown wrapper leaks
                 cleanText = cleanText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
                 
-                // Isolate structural bracket syntax data windows
                 const startBracket = cleanText.indexOf("{");
                 const endBracket = cleanText.lastIndexOf("}");
                 if (startBracket !== -1 && endBracket !== -1) {
@@ -190,22 +276,33 @@
 
                 const parsedData = JSON.parse(cleanText);
                 
+                // Unpack structural items checklist array maps
+                let fullItemsList = [];
+                const groupsArray = Array.isArray(parsedData.groups) ? parsedData.groups : [];
+                
+                groupsArray.forEach(g => {
+                    const totalItemsCount = g.plateCount * g.itemPerPlateCount;
+                    for(let k = 0; k < totalItemsCount; k++) {
+                        fullItemsList.push(g.itemType);
+                    }
+                });
+
                 currentOrderData = {
-                    displayStory: parsedData.displayStory || "Hello! I'd like to place an order.",
-                    items: Array.isArray(parsedData.items) ? parsedData.items : ["Burger"],
+                    displayStory: parsedData.displayStory || "Could I get some food arranged on plates?",
+                    rawGroups: groupsArray,
+                    expectedItemsList: fullItemsList,
                     totalCost: typeof parsedData.totalCost === 'number' ? parsedData.totalCost : 5
                 };
                 
                 orderTextElement.innerHTML = `<strong>Customer says:</strong> "${currentOrderData.displayStory}"`;
                 
-                trayItems = [];
-                dropZone.innerHTML = "Drop items here to serve!";
+                // Build dynamic plate spaces
+                buildGamePlates(currentOrderData.rawGroups);
                 document.getElementById('player-math').value = '';
                 
                 document.getElementById('chatLog').innerHTML = '<p style="color: #888;">AI customer messages will appear here.</p>';
                 appendChatMessage("Customer", currentOrderData.displayStory);
             } catch(e) {
-                // BUG CATCHER OVERRIDE: Prints the exact problematic string on your webpage
                 orderTextElement.innerHTML = `<strong style="color:red;">Parse Error!</strong><br>
                 <strong>What Gemini actually sent:</strong><br> 
                 <pre style="background: #fee; padding: 10px; border: 1px solid red; white-space: pre-wrap; text-align: left; font-family: monospace;">${aiResponse}</pre>
@@ -218,16 +315,22 @@
             const playerPrice = parseInt(document.getElementById('player-math').value);
             const isMathCorrect = (playerPrice === currentOrderData.totalCost);
             
-            const expectedItems = [...currentOrderData.items].sort();
-            const actualItems = [...trayItems].sort();
-            const isTrayCorrect = JSON.stringify(expectedItems) === JSON.stringify(actualItems);
+            // Collect all items across all active user plates
+            let totalServedItems = [];
+            Object.keys(activePlatesData).forEach(plateId => {
+                totalServedItems = totalServedItems.concat(activePlatesData[plateId]);
+            });
+
+            const expectedSorted = [...currentOrderData.expectedItemsList].sort();
+            const actualSorted = [...totalServedItems].sort();
+            const isTrayCorrect = JSON.stringify(expectedSorted) === JSON.stringify(actualSorted);
 
             if (isMathCorrect && isTrayCorrect) {
-                alert("🎉 Excellent! Correct items served and exact price calculated perfectly!");
+                alert("🎉 Brilliant! Every item is placed cleanly on its correct group plate layout, and your multiplication is perfect!");
             } else {
-                let errorMsg = "Oops! Check your work:\n";
-                if(!isTrayCorrect) errorMsg += `- The items in the tray don't match the order.\n`;
-                if(!isMathCorrect) errorMsg += `- Your price calculation is incorrect.\n`;
+                let errorMsg = "Oops! Check your plate layouts:\n";
+                if(!isTrayCorrect) errorMsg += `- Total food items distributed on your plates do not match the customer's request.\n`;
+                if(!isMathCorrect) errorMsg += `- Your final grouped multiplication price math is incorrect.\n`;
                 alert(errorMsg);
             }
         }
@@ -242,8 +345,8 @@
             appendChatMessage("You", message);
             inputEl.value = '';
 
-            const prompt = `You are a customer at a cafe. A student is practicing English with you. 
-            They just said: "${message}". Respond nicely as a customer, keeping your vocabulary suitable for an English learner. Max 2 sentences.`;
+            const prompt = `You are a customer sitting at a cafe table waiting for your plate order. A student waiter is practicing English.
+            They just said: "${message}". Respond naturally as a cafe diner customer. Max 2 sentences.`;
 
             const aiReply = await callGemini(prompt);
             chatBtn.disabled = false;
