@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Multiplication Madness</title>
+</head>
 <body>
 
     <header>
@@ -158,4 +159,114 @@
         // --- GAME ACTIONS ---
         async function generateAIOrder() {
             const orderTextElement = document.getElementById('order-text');
-            const
+            const genBtn = document.getElementById('generate-order-btn');
+            
+            // Engage rate-limiting input locks
+            genBtn.disabled = true;
+            orderTextElement.innerHTML = "<em>Customer is thinking...</em>";
+            
+            const prompt = `You are a customer ordering food at a basic cafe.
+            Choose a random combination of food options: Burgers ($5 each), Fries ($3 each), and Soda ($2 each).
+            You MUST respond with a single, raw valid JSON object. Do not include introductory text. Do not wrap it in markdown block tags like \`\`\`json.
+            
+            Use this exact key structural layout:
+            {"displayStory": "Hello! Could I get 2 Burgers and a Soda please?", "items": ["Burger", "Burger", "Soda"], "totalCost": 12}`;
+
+            const aiResponse = await callGemini(prompt);
+            
+            // Release rate-limiting input locks
+            genBtn.disabled = false;
+
+            if (!aiResponse) {
+                orderTextElement.innerHTML = "Error connecting to AI proxy backend.";
+                return;
+            }
+
+            try {
+                let cleanText = aiResponse.trim();
+                if (cleanText.includes("```")) {
+                    cleanText = cleanText.replace(/```json/gi, "").replace(/```/g, "").trim();
+                }
+                
+                // Isolate structural bracket syntax data windows
+                const startBracket = cleanText.indexOf("{");
+                const endBracket = cleanText.lastIndexOf("}");
+                if (startBracket !== -1 && endBracket !== -1) {
+                    cleanText = cleanText.substring(startBracket, endBracket + 1);
+                }
+
+                const parsedData = JSON.parse(cleanText);
+                
+                // Property Normalization Layer Maps
+                currentOrderData = {
+                    displayStory: parsedData.displayStory || "Hello! I'd like to place an order.",
+                    items: Array.isArray(parsedData.items) ? parsedData.items : ["Burger"],
+                    totalCost: typeof parsedData.totalCost === 'number' ? parsedData.totalCost : 5
+                };
+                
+                orderTextElement.innerHTML = `<strong>Customer says:</strong> "${currentOrderData.displayStory}"`;
+                
+                // Refresh game dashboard panels
+                trayItems = [];
+                dropZone.innerHTML = "Drop items here to serve!";
+                document.getElementById('player-math').value = '';
+                
+                appendChatMessage("Customer", currentOrderData.displayStory);
+            } catch(e) {
+                orderTextElement.innerHTML = "Failed to parse AI response string data formats. Click 'Generate AI Order' to retry.";
+                console.log("Raw Response Parse Dump:", aiResponse);
+            }
+        }
+
+        function checkOrderAndMath() {
+            const playerPrice = parseInt(document.getElementById('player-math').value);
+            const isMathCorrect = (playerPrice === currentOrderData.totalCost);
+            
+            const expectedItems = [...currentOrderData.items].sort();
+            const actualItems = [...trayItems].sort();
+            const isTrayCorrect = JSON.stringify(expectedItems) === JSON.stringify(actualItems);
+
+            if (isMathCorrect && isTrayCorrect) {
+                alert("🎉 Excellent! Correct items served and exact price calculated perfectly!");
+            } else {
+                let errorMsg = "Oops! Check your work:\n";
+                if(!isTrayCorrect) errorMsg += `- The items in the tray don't match the order.\n`;
+                if(!isMathCorrect) errorMsg += `- Your price calculation is incorrect.\n`;
+                alert(errorMsg);
+            }
+        }
+
+        async function sendChatMessage() {
+            const inputEl = document.getElementById('chatInput');
+            const chatBtn = document.getElementById('send-chat-btn');
+            const message = inputEl.value.trim();
+            if(!message) return;
+
+            // Engage rate-limiting input locks
+            chatBtn.disabled = true;
+            appendChatMessage("You", message);
+            inputEl.value = '';
+
+            const prompt = `You are a customer at a cafe. A student is practicing English with you. 
+            They just said: "${message}". Respond nicely as a customer, keeping your vocabulary suitable for an English learner. Max 2 sentences.`;
+
+            const aiReply = await callGemini(prompt);
+            
+            // Release rate-limiting input locks
+            chatBtn.disabled = false;
+
+            if(aiReply) {
+                appendChatMessage("Customer", aiReply.trim());
+            } else {
+                appendChatMessage("System", "Customer didn't hear you. Try again.");
+            }
+        }
+
+        function appendChatMessage(sender, text) {
+            const log = document.getElementById('chatLog');
+            log.innerHTML += `<p><strong>${sender}:</strong> ${text}</p>`;
+            log.scrollTop = log.scrollHeight;
+        }
+    </script>
+</body>
+</html>
