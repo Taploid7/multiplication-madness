@@ -334,7 +334,8 @@
                 <em>Click the red button below to bring in a customer! 👇</em>
             </div>
             <button id="generate-order-btn" onclick="generateAIOrder()">🛎️ Bring in a Customer!</button>
-		<div></div><br>
+
+            <br>
             <h2>2. Put Food on the Plates!</h2>
             <div class="menu-items-container">
                 <div class="draggable-item" draggable="true" data-item="Burger">🍔 Burger ($5)</div>
@@ -391,8 +392,15 @@
         let secondsRemaining = 0;
 
         const dialog = document.getElementById('welcome-dialog');
-        function openWelcomeDialog() { dialog.showModal(); }
-        function closeWelcomeDialog() { dialog.close(); generateAIOrder(); }
+        
+        function openWelcomeDialog() { 
+            dialog.showModal(); 
+        }
+        
+        function closeWelcomeDialog() { 
+            dialog.close(); 
+            generateAIOrder(); 
+        }
 
         const draggables = document.querySelectorAll('.draggable-item');
         draggables.forEach(draggable => {
@@ -576,8 +584,7 @@
             chatBtn.disabled = false;
 
             try {
-                let cleanReply = aiReplyString.trim().replace(/^```json\s*/i, '').replace(/
-```\s*$/, '').trim();
+                let cleanReply = aiReplyString.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
                 const chatData = JSON.parse(cleanReply);
                 
                 appendChatMessage("Customer", chatData.reply);
@@ -637,6 +644,10 @@
             log.innerHTML += `<p><strong>${sender}:</strong> ${text}</p>`;
             log.scrollTop = log.scrollHeight;
         }
+
+        window.onload = function() {
+            openWelcomeDialog();
+        };
     </script>
 </body>
 </html>
