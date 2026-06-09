@@ -21,7 +21,6 @@
             max-width: 950px;
             margin: 0 auto;
             padding: 20px;
-            /* Classic retro diner checkered border background style */
             background-color: var(--diner-cream);
             background-image: radial-gradient(rgba(0, 0, 0, 0.05) 15%, transparent 16%),
                               radial-gradient(rgba(0, 0, 0, 0.05) 15%, transparent 16%);
@@ -42,7 +41,6 @@
             border: 5px solid var(--dark-steel);
             box-shadow: 8px 8px 0px var(--dark-steel);
             margin-bottom: 25px;
-            /* Retro Diner Header Banner Pattern */
             border-top: 15px solid var(--diner-cherry);
         }
 
@@ -77,7 +75,7 @@
             box-shadow: 0 1px 0 var(--dark-steel);
         }
 
-        /* HUD Scoreboard */
+        /* Scoreboard HUD */
         .score-dashboard {
             display: flex;
             justify-content: center;
@@ -105,7 +103,6 @@
         }
         .timer-low { animation: pulse-red 0.6s infinite; }
 
-        /* General Diner Panel Wrapper Containers */
         section {
             background: #fff;
             padding: 25px;
@@ -123,7 +120,6 @@
             border-bottom: 4px dashed var(--diner-mint);
         }
 
-        /* Order Speech Bubble */
         #order-text {
             background: #fdfaee;
             padding: 20px;
@@ -149,7 +145,6 @@
             box-shadow: 0 1px 0 var(--dark-steel);
         }
 
-        /* Menu Food Dispensers */
         .menu-items-container {
             background: #f8fafc;
             padding: 20px;
@@ -173,7 +168,6 @@
         }
         .draggable-item:hover { transform: scale(1.05) rotate(-2deg); }
 
-        /* The Slate Countertop Table */
         .plate-container {
             display: flex;
             flex-wrap: wrap;
@@ -188,7 +182,6 @@
             box-shadow: inset 0 8px 0 rgba(0,0,0,0.1);
         }
 
-        /* Ceramic White Plates */
         .food-plate {
             border: 4px solid var(--dark-steel);
             border-radius: 50%;
@@ -212,7 +205,6 @@
         .plate-label { font-size: 11px; color: #64748b; margin-bottom: 6px; }
         .plate-items { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px; }
 
-        /* Pill Badges For Plated Food Items */
         .tray-item {
             border: 2px solid var(--dark-steel);
             padding: 4px 8px;
@@ -246,7 +238,6 @@
             text-align: center;
         }
 
-        /* --- SPLIT FLEXBOX LAYOUT FOR CUSTOMER PIC AND CHAT --- */
         .interaction-hub {
             display: flex;
             gap: 20px;
@@ -254,7 +245,6 @@
             margin-top: 15px;
         }
 
-        /* Left Side: Avatar Display Frame Container Box */
         .customer-profile-box {
             width: 180px;
             background: #f1f5f9;
@@ -289,7 +279,6 @@
             object-fit: cover;
         }
 
-        /* Right Side: Conversation Thread Log Box */
         .chat-container-box {
             flex-grow: 1;
             display: flex;
@@ -322,31 +311,31 @@
 
     <header>
         <h1>🥤 MINNIE'S DINER RUSH 🍔</h1>
-        <p>Take orders, serve your tables, and upsell those side dishes!</p>
-        <button id="start-game-btn" onclick="openWelcomeDialog()">Start Shift! 🧑‍🍳</button>
+        <p>Make math groups, serve food, and help your diner win!</p>
+        <button id="start-game-btn" onclick="openWelcomeDialog()">Let's Play! 🧑‍🍳</button>
     </header>
 
     <div class="score-dashboard">
-        <div class="stat-box">⭐ Total Wins: <span id="total-wins-count">0</span></div>
-        <div class="stat-box streak">🔥 Streak: <span id="current-streak-count">0</span></div>
-        <div class="stat-box timer-box" id="timer-box-hud">⏳ Clock: <span id="timer-countdown">--</span>s</div>
+        <div class="stat-box">⭐ Stars Won: <span id="total-wins-count">0</span></div>
+        <div class="stat-box streak">🔥 Winning Streak: <span id="current-streak-count">0</span></div>
+        <div class="stat-box timer-box" id="timer-box-hud">⏳ Time Left: <span id="timer-countdown">--</span>s</div>
     </div>
 
     <dialog id="welcome-dialog">
-        <h2>Grab Your Apron!</h2>
-        <p>Keep the customers happy by serving their math grouping combinations perfectly before time runs out!</p>
-        <button style="background: var(--diner-mint); border: 2px solid var(--dark-steel); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="closeWelcomeDialog()">Let's Serve!</button>
+        <h2>Welcome to the Team!</h2>
+        <p>Look at what the customer wants. Put the right food on the plates before the timer runs out!</p>
+        <button style="background: var(--diner-mint); border: 2px solid var(--dark-steel); padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: bold;" onclick="closeWelcomeDialog()">Play Now!</button>
     </dialog>
 
     <main>
         <section>
-            <h2>1. Active Order Ticket</h2>
+            <h2>1. What the Customer Wants</h2>
             <div id="order-text">
-                <em>Click the button below to seat your next table!</em>
+                <em>Click the red button below to bring in a customer! 👇</em>
             </div>
-            <button id="generate-order-btn" onclick="generateAIOrder()">🛎️ Seat Next Table</button>
-
-            <h2>2. Assemble Trays & Plates</h2>
+            <button id="generate-order-btn" onclick="generateAIOrder()">🛎️ Bring in a Customer!</button>
+		<div></div><br>
+            <h2>2. Put Food on the Plates!</h2>
             <div class="menu-items-container">
                 <div class="draggable-item" draggable="true" data-item="Burger">🍔 Burger ($5)</div>
                 <div class="draggable-item" draggable="true" data-item="Fries">🍟 Fries ($3)</div>
@@ -354,34 +343,34 @@
             </div>
 
             <div id="plates-wrapper" class="plate-container">
-                <p style="color: #475569; font-style: italic; margin: auto;">Table top is clean and waiting...</p>
+                <p style="color: #475569; font-style: italic; margin: auto;">The table is empty and waiting...</p>
             </div>
             
-            <h2>3. Ring it Up at the Register</h2>
+            <h2>3. Total Cost Check</h2>
             <div class="math-input-zone">
-                <span>Total Bill Amount:</span>
+                <span>Type the total bill:</span>
                 <input type="number" id="player-math" placeholder="$$$">
-                <button id="submit-order-btn" onclick="checkOrderAndMath()">🔔 Order Up!</button>
+                <button id="submit-order-btn" onclick="checkOrderAndMath()">🔔 Serve the Food!</button>
             </div>
         </section>
 
         <section>
-            <h2>Customer Lounge & Upsell Desk</h2>
+            <h2>4. Talk to Your Customer Here!</h2>
             
             <div class="interaction-hub">
                 <div class="customer-profile-box">
                     <div class="avatar-frame">
                         <img id="customer-avatar-img" src="https://placehold.co/120x120/118ab2/ffffff?text=Customer" alt="Diner Guest">
                     </div>
-                    <span style="font-size: 12px; color: #64748b; font-family:'Fredoka One';">GUEST VIEW</span>
+                    <span style="font-size: 12px; color: #64748b; font-family:'Fredoka One';">YOUR GUEST</span>
                 </div>
 
                 <div class="chat-container-box">
                     <div id="chatLog">
-                        <p style="color: #94a3b8; font-style: italic;">No customer seated at this counter yet.</p>
+                        <p style="color: #94a3b8; font-style: italic;">No customer is at the table yet.</p>
                     </div>
                     <div style="display: flex; gap: 10px;">
-                        <input type="text" id="chatInput" style="flex-grow: 1;" placeholder="Say: 'Would you like some sodas with that?'" onkeypress="if(event.key === 'Enter') sendChatMessage()">
+                        <input type="text" id="chatInput" style="flex-grow: 1;" placeholder="Ask them: 'Would you like some sodas with that?'" onkeypress="if(event.key === 'Enter') sendChatMessage()">
                         <button id="send-chat-btn" onclick="sendChatMessage()">Send 💬</button>
                     </div>
                 </div>
@@ -491,7 +480,7 @@
         function handleTimeOutLoss() {
             currentStreak = 0;
             updateScoreHUD();
-            alert("⏰ Customer left! Your streak was reset.");
+            alert("⏰ Oh no! The customer ran out of time and left! Your streak went back to 0.");
             generateAIOrder();
         }
 
@@ -521,7 +510,7 @@
             clearInterval(gameTimerInterval);
             document.getElementById('timer-countdown').innerText = "--";
             genBtn.disabled = true;
-            orderTextElement.innerHTML = "<em>Seating a new customer...</em>";
+            orderTextElement.innerHTML = "<em>A new customer is walking in...</em>";
             
             let difficultyContext = "Keep the math tiny: Choose a total of 2-3 plates, and 1-2 items per plate.";
             if (currentStreak >= 3 && currentStreak < 6) {
@@ -530,7 +519,7 @@
                 difficultyContext = "Minnie's Madness Mode! Generate a huge order: 6-10 total plates with 4-6 items per plate!";
             }
             
-            const prompt = `You are a customer sitting at Minnie's Diner. Order food grouped clearly into plates.
+            const prompt = `You are a customer sitting at Minnie's Diner. Order food grouped clearly into plates. Use very simple wording for lower school kids.
             Burgers ($5), Fries ($3), Soda ($2).
             DIFFICULTY SCALING LEVEL: ${difficultyContext}
             You MUST respond with a single, raw valid JSON object. Do not wrap it in markdown block tags.
@@ -561,7 +550,7 @@
                     totalCost: parsedData.totalCost
                 };
                 
-                orderTextElement.innerHTML = `<strong>Customer Ticket:</strong> "${currentOrderData.displayStory}"`;
+                orderTextElement.innerHTML = `<strong>Customer Says:</strong> "${currentOrderData.displayStory}"`;
                 buildGamePlates(currentOrderData.rawGroups);
                 document.getElementById('player-math').value = '';
                 
@@ -569,7 +558,7 @@
                 appendChatMessage("Customer", currentOrderData.displayStory);
                 startNewRoundTimer();
             } catch(e) {
-                orderTextElement.innerHTML = `Diner line jammed! Let's click again.`;
+                orderTextElement.innerHTML = `Something went wrong! Let's click the button again.`;
             }
         }
 
@@ -587,7 +576,8 @@
             chatBtn.disabled = false;
 
             try {
-                let cleanReply = aiReplyString.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+                let cleanReply = aiReplyString.trim().replace(/^```json\s*/i, '').replace(/
+```\s*$/, '').trim();
                 const chatData = JSON.parse(cleanReply);
                 
                 appendChatMessage("Customer", chatData.reply);
@@ -628,11 +618,11 @@
 
             if (isMathCorrect && isTrayCorrect) {
                 totalWins++; currentStreak++; updateScoreHUD();
-                alert(`🎉 Order served successfully!`);
+                alert(`🎉 Great job! The plates match and the math is perfect!`);
                 generateAIOrder(); 
             } else {
                 currentStreak = 0; updateScoreHUD();
-                alert(`❌ Order failed! Let's clean the table.`);
+                alert(`❌ Oops, the plates or the bill total don't match! Let's try another table.`);
                 generateAIOrder();
             }
         }
