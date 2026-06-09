@@ -32,7 +32,7 @@
         <section>
             <h2>1. The Customer Order</h2>
             <div id="order-text"><em>Click "Generate Order" to start...</em></div>
-            <button onclick="generateAIOrder()">Generate AI Order</button>
+            <button id="generate-order-btn" onclick="generateAIOrder()">Generate AI Order</button>
 
             <h2>2. Assemble Order (Drag & Drop)</h2>
             <div>
@@ -62,7 +62,7 @@
             </div>
             <div>
                 <input type="text" id="chatInput" placeholder="Talk to the customer..." onkeypress="if(event.key === 'Enter') sendChatMessage()">
-                <button onclick="sendChatMessage()">Send</button>
+                <button id="send-chat-btn" onclick="sendChatMessage()">Send</button>
             </div>
         </section>
     </main>
@@ -110,27 +110,26 @@
             
             if(dropZone.innerText.includes("Drop items here")) dropZone.innerText = "";
             
-            // Render item with a custom class and styling indicating it can be clicked to be deleted
+            // Render item with click-to-delete support
             dropZone.innerHTML += `<span class="tray-item" data-item="${itemType}" style="border: 1px solid gray; padding: 2px 6px; margin-right: 5px; background: #eee; cursor: pointer; display: inline-block; border-radius: 4px;" title="Click to remove">× ${itemType}</span>`;
         });
 
-        // --- NEW FEATURE: CLICK TO DELETE ITEM FROM TRAY ---
+        // --- CLICK TO DELETE ELEMENT MECHANIC ---
         dropZone.addEventListener('click', e => {
             const clickedSpan = e.target.closest('.tray-item');
             if (!clickedSpan) return;
 
             const itemType = clickedSpan.getAttribute('data-item');
             
-            // Remove the first occurrence of this item from the tracking array
+            // Update Array tracking data
             const targetIndex = trayItems.indexOf(itemType);
             if (targetIndex > -1) {
                 trayItems.splice(targetIndex, 1);
             }
 
-            // Remove the visual element from the screen
+            // Update visible UI screen
             clickedSpan.remove();
 
-            // If the tray is now completely empty, reset the placeholder text
             if (trayItems.length === 0) {
                 dropZone.innerText = "Drop items here to serve!";
             }
@@ -162,6 +161,10 @@
         // --- GAME ACTIONS ---
         async function generateAIOrder() {
             const orderTextElement = document.getElementById('order-text');
+            const genBtn = document.getElementById('generate-order-btn');
+            
+            // Turn on Cooldown Protection
+            genBtn.disabled = true;
             orderTextElement.innerHTML = "<em>Customer is thinking...</em>";
             
             const prompt = `You are a customer ordering food at a basic cafe.
@@ -172,19 +175,22 @@
             {"displayStory": "Hello! Could I get 2 Burgers and a Soda please?", "items": ["Burger", "Burger", "Soda"], "totalCost": 12}`;
 
             const aiResponse = await callGemini(prompt);
+            
+            // Turn off Cooldown Protection
+            genBtn.disabled = false;
+
             if (!aiResponse) {
                 orderTextElement.innerHTML = "Error connecting to AI proxy backend.";
                 return;
             }
 
             try {
-                // Advanced RegEx cleaner targeting stray markdown brackets hidden inside text streams
                 let cleanText = aiResponse.trim();
                 if (cleanText.includes("```")) {
                     cleanText = cleanText.replace(/```json/gi, "").replace(/```/g, "").trim();
                 }
                 
-                // If text still contains non-JSON junk strings before/after the bracket matches:
+                // Crop out rogue exterior text wrapping the JSON structural string data
                 const startBracket = cleanText.indexOf("{");
                 const endBracket = cleanText.lastIndexOf("}");
                 if (startBracket !== -1 && endBracket !== -1) {
@@ -195,15 +201,15 @@
                 
                 orderTextElement.innerHTML = `<strong>Customer says:</strong> "${currentOrderData.displayStory}"`;
                 
-                // Reset game board configuration
+                // Reset internal variables and layout boards
                 trayItems = [];
                 dropZone.innerHTML = "Drop items here to serve!";
                 document.getElementById('player-math').value = '';
                 
                 appendChatMessage("Customer", currentOrderData.displayStory);
             } catch(e) {
-                orderTextElement.innerHTML = "Failed to parse AI response formatting. Click 'Generate AI Order' to attempt a clean retry.";
-                console.log("Raw Response Dump:", aiResponse);
+                orderTextElement.innerHTML = "Failed to parse AI response data string layout. Please retry generating an order configuration.";
+                console.log("Raw Response Fault Trace Layout:", aiResponse);
             }
         }
 
@@ -227,9 +233,12 @@
 
         async function sendChatMessage() {
             const inputEl = document.getElementById('chatInput');
+            const chatBtn = document.getElementById('send-chat-btn');
             const message = inputEl.value.trim();
             if(!message) return;
 
+            // Turn on Cooldown Protection
+            chatBtn.disabled = true;
             appendChatMessage("You", message);
             inputEl.value = '';
 
@@ -237,6 +246,10 @@
             They just said: "${message}". Respond nicely as a customer, keeping your vocabulary suitable for an English learner. Max 2 sentences.`;
 
             const aiReply = await callGemini(prompt);
+            
+            // Turn off Cooldown Protection
+            chatBtn.disabled = false;
+
             if(aiReply) {
                 appendChatMessage("Customer", aiReply.trim());
             } else {
