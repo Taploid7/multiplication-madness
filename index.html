@@ -20,7 +20,6 @@
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.05);
         }
-        /* Win Counter & Timer Dashboard Styling */
         .score-dashboard {
             display: flex;
             justify-content: center;
@@ -50,7 +49,6 @@
             min-width: 160px;
             text-align: center;
         }
-        /* Dynamic plate container grid */
         .plate-container {
             display: flex;
             flex-wrap: wrap;
@@ -139,9 +137,8 @@
         <ul>
             <li>Listen to the Customer's grouped order in English.</li>
             <li>Drag and drop the food items onto each specific **plate**.</li>
+            <li><strong>Interactive Chat: Ask the customer if they want extra items! If they say yes, new plates will appear automatically!</strong></li>
             <li>Calculate the total price correctly before the **Timer** runs out!</li>
-            <li><strong>Winning auto-starts the next customer round immediately!</strong></li>
-            <li><em>Tip: Click any item on a plate if you want to remove it!</em></li>
         </ul>
         <button style="padding: 8px 16px; cursor: pointer;" onclick="closeWelcomeDialog()">Let's Play!</button>
     </dialog>
@@ -177,96 +174,80 @@
         <hr style="margin: 30px 0;">
 
         <section style="background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e8e8e8;">
-            <h2>Customer Conversation</h2>
+            <h2>Customer Conversation (Upsell Items Here!)</h2>
             <div id="chatLog" style="border: 1px solid #ccc; height: 150px; overflow-y: scroll; padding: 10px; margin-bottom: 10px; background: #fafafa; border-radius: 4px;">
                 <p style="color: #888;">AI customer messages will appear here.</p>
             </div>
             <div style="display: flex; gap: 10px;">
-                <input type="text" id="chatInput" style="flex-grow: 1; padding: 8px;" placeholder="Talk to the customer..." onkeypress="if(event.key === 'Enter') sendChatMessage()">
+                <input type="text" id="chatInput" style="flex-grow: 1; padding: 8px;" placeholder="Say: 'Would you like some plates of fries with that?'" onkeypress="if(event.key === 'Enter') sendChatMessage()">
                 <button id="send-chat-btn" style="padding: 8px 16px; cursor: pointer;" onclick="sendChatMessage()">Send</button>
             </div>
         </section>
     </main>
 
     <script>
-        // --- PROXY BACKEND CONFIGURATION ---
         const VERCEL_PROXY_URL = 'https://game1-git-main-taploid7s-projects.vercel.app/api/chat';
 
-        // --- GAME STATE ---
         let currentOrderData = { rawGroups: [], expectedItemsList: [], totalCost: 0 };
         let activePlatesData = {}; 
+        let globalPlateCounter = 1;
         
-        // --- SCORE & TIMER TRACKING DATA ---
         let totalWins = 0;
         let currentStreak = 0;
         let gameTimerInterval = null;
         let secondsRemaining = 0;
 
-        // --- DIALOG LOGIC ---
         const dialog = document.getElementById('welcome-dialog');
+        function openWelcomeDialog() { dialog.showModal(); }
+        function closeWelcomeDialog() { dialog.close(); generateAIOrder(); }
 
-        function openWelcomeDialog() {
-            dialog.showModal(); 
-        }
-
-        function closeWelcomeDialog() {
-            dialog.close(); 
-            generateAIOrder(); 
-        }
-
-        // --- SETUP DRAGGABLE LISTENER HOOKS ---
         const draggables = document.querySelectorAll('.draggable-item');
         draggables.forEach(draggable => {
             draggable.addEventListener('dragstart', () => draggable.classList.add('dragging'));
             draggable.addEventListener('dragend', () => draggable.classList.remove('dragging'));
         });
 
-        // --- DYNAMICALLY GENERATE DROPPABLE PLATES ---
-        function buildGamePlates(groups) {
+        // --- DYNAMICALLY ADD INDIVIDUAL PLATES TO WORKSPACE ---
+        function appendSinglePlateToContainer() {
             const wrapper = document.getElementById('plates-wrapper');
-            wrapper.innerHTML = ''; 
-            activePlatesData = {}; 
+            const plateId = `plate-${globalPlateCounter}`;
+            activePlatesData[plateId] = []; 
 
-            let globalPlateCounter = 1;
+            const plateDiv = document.createElement('div');
+            plateDiv.className = 'food-plate';
+            plateDiv.id = plateId;
+            plateDiv.innerHTML = `
+                <div class="plate-label">Plate ${globalPlateCounter}</div>
+                <div class="plate-items" id="${plateId}-items"></div>
+            `;
+
+            plateDiv.addEventListener('dragover', (e) => { e.preventDefault(); plateDiv.classList.add('drag-over'); });
+            plateDiv.addEventListener('dragleave', () => { plateDiv.classList.remove('drag-over'); });
+            plateDiv.addEventListener('drop', (e) => {
+                e.preventDefault();
+                plateDiv.classList.remove('drag-over');
+                const draggingItem = document.querySelector('.dragging');
+                if (!draggingItem) return;
+                
+                const itemType = draggingItem.getAttribute('data-item');
+                activePlatesData[plateId].push(itemType);
+                
+                const itemsZone = document.getElementById(`${plateId}-items`);
+                itemsZone.innerHTML += `<span class="tray-item" data-item="${itemType}" onclick="removeElementFromPlate('${plateId}', this)">× ${itemType}</span>`;
+            });
+
+            wrapper.appendChild(plateDiv);
+            globalPlateCounter++;
+        }
+
+        function buildGamePlates(groups) {
+            document.getElementById('plates-wrapper').innerHTML = ''; 
+            activePlatesData = {}; 
+            globalPlateCounter = 1;
 
             groups.forEach((group) => {
                 for (let i = 0; i < group.plateCount; i++) {
-                    const plateId = `plate-${globalPlateCounter}`;
-                    activePlatesData[plateId] = []; 
-
-                    const plateDiv = document.createElement('div');
-                    plateDiv.className = 'food-plate';
-                    plateDiv.id = plateId;
-                    plateDiv.innerHTML = `
-                        <div class="plate-label">Plate ${globalPlateCounter}</div>
-                        <div class="plate-items" id="${plateId}-items"></div>
-                    `;
-
-                    plateDiv.addEventListener('dragover', (e) => {
-                        e.preventDefault();
-                        plateDiv.classList.add('drag-over');
-                    });
-
-                    plateDiv.addEventListener('dragleave', () => {
-                        plateDiv.classList.remove('drag-over');
-                    });
-
-                    plateDiv.addEventListener('drop', (e) => {
-                        e.preventDefault();
-                        plateDiv.classList.remove('drag-over');
-                        
-                        const draggingItem = document.querySelector('.dragging');
-                        if (!draggingItem) return;
-                        
-                        const itemType = draggingItem.getAttribute('data-item');
-                        activePlatesData[plateId].push(itemType);
-                        
-                        const itemsZone = document.getElementById(`${plateId}-items`);
-                        itemsZone.innerHTML += `<span class="tray-item" data-item="${itemType}" onclick="removeElementFromPlate('${plateId}', this)">× ${itemType}</span>`;
-                    });
-
-                    wrapper.appendChild(plateDiv);
-                    globalPlateCounter++;
+                    appendSinglePlateToContainer();
                 }
             });
         }
@@ -280,26 +261,15 @@
             element.remove();
         }
 
-        // --- GAME TIMER CLOCK CONTROLLERS ---
         function startNewRoundTimer() {
-            // Stop any active ongoing timers
             clearInterval(gameTimerInterval);
-            
-            // Scaled base allocation timing windows (Shorter clocks for bigger streaks)
-            let allocatedSeconds = 50; 
-            if (currentStreak >= 3 && currentStreak < 6) {
-                allocatedSeconds = 40;
-            } else if (currentStreak >= 6) {
-                allocatedSeconds = 30; // High-intensity rush round!
-            }
-            
+            let allocatedSeconds = currentStreak >= 6 ? 30 : (currentStreak >= 3 ? 40 : 50);
             secondsRemaining = allocatedSeconds;
             document.getElementById('timer-countdown').innerText = secondsRemaining;
             
             gameTimerInterval = setInterval(() => {
                 secondsRemaining--;
                 document.getElementById('timer-countdown').innerText = secondsRemaining;
-                
                 if (secondsRemaining <= 0) {
                     clearInterval(gameTimerInterval);
                     handleTimeOutLoss();
@@ -310,96 +280,75 @@
         function handleTimeOutLoss() {
             currentStreak = 0;
             updateScoreHUD();
-            alert("⏰ Time's up! The customer got tired of waiting and left the diner.\n\nStreak reset to 0!");
-            generateAIOrder(); // Bring in a fresh customer
+            alert("⏰ Time's up! The customer left the diner.\n\nStreak reset to 0!");
+            generateAIOrder();
         }
 
-        async function callGemini(promptText) {
+        async function callGemini(promptText, isConversation = false) {
             try {
                 const response = await fetch(VERCEL_PROXY_URL, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ promptText: promptText })
+                    body: JSON.stringify({ 
+                        promptText: promptText,
+                        isConversation: isConversation,
+                        currentOrderContext: currentOrderData
+                    })
                 });
                 const data = await response.json();
-                if (data.text) return data.text;
-                if (data.reply) return data.reply;
-                return typeof data === 'string' ? data : JSON.stringify(data);
+                return data.text || null;
             } catch (error) {
-                console.error("Proxy Connection Error:", error);
+                console.error(error);
                 return null;
             }
         }
 
-        // --- GAME ACTIONS WITH ADAPTIVE STREAK DIFFICULTY ---
         async function generateAIOrder() {
             const orderTextElement = document.getElementById('order-text');
             const genBtn = document.getElementById('generate-order-btn');
             
-            // Stop the timer while the AI thinks so the player isn't penalized for network lag
             clearInterval(gameTimerInterval);
             document.getElementById('timer-countdown').innerText = "--";
-
             genBtn.disabled = true;
-            orderTextElement.innerHTML = "<em>Customer is walking into the diner...</em>";
+            orderTextElement.innerHTML = "<em>Customer is deciding...</em>";
             
             let difficultyContext = "Keep the math tiny: Choose a total of 2-3 plates, and 1-2 items per plate.";
             if (currentStreak >= 3 && currentStreak < 6) {
                 difficultyContext = "Increase complexity: Choose a total of 4-6 plates, and 2-4 items per plate.";
             } else if (currentStreak >= 6) {
-                difficultyContext = "Minnie's Madness Mode! Generate a huge order: 6-10 total plates with 4-6 items per plate to test advanced multiplication!";
+                difficultyContext = "Minnie's Madness Mode! Generate a huge order: 6-10 total plates with 4-6 items per plate!";
             }
             
-            const prompt = `You are a customer sitting down at Minnie's Diner. Order food grouped clearly into plates.
-            Available items and exact prices: Burgers ($5), Fries ($3), Soda ($2).
-            
+            const prompt = `You are a customer sitting at Minnie's Diner. Order food grouped clearly into plates.
+            Burgers ($5), Fries ($3), Soda ($2).
             DIFFICULTY SCALING LEVEL: ${difficultyContext}
-            
-            You MUST speak in character as a diner customer. You MUST respond with a single, raw valid JSON object. Do not wrap it in markdown block tags.
-            
-            Use this exact key layout pattern:
+            You MUST respond with a single, raw valid JSON object. Do not wrap it in markdown block tags.
             {
-              "displayStory": "We have a big table! Give us 4 plates of 3 Burgers, please!",
-              "groups": [
-                {"plateCount": 4, "itemPerPlateCount": 3, "itemType": "Burger"}
-              ],
-              "totalCost": 60
+              "displayStory": "Give us 3 plates of 2 Burgers, please!",
+              "groups": [{"plateCount": 3, "itemPerPlateCount": 2, "itemType": "Burger"}],
+              "totalCost": 30
             }`;
 
-            const aiResponse = await callGemini(prompt);
+            const aiResponse = await callGemini(prompt, false);
             genBtn.disabled = false;
 
-            if (!aiResponse) {
-                orderTextElement.innerHTML = "Error connecting to AI proxy backend.";
-                return;
-            }
-
             try {
-                let cleanText = aiResponse.trim();
-                cleanText = cleanText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
-                
-                const startBracket = cleanText.indexOf("{");
-                const endBracket = cleanText.lastIndexOf("}");
-                if (startBracket !== -1 && endBracket !== -1) {
-                    cleanText = cleanText.substring(startBracket, endBracket + 1);
-                }
-
+                let cleanText = aiResponse.trim().replace(/^```json\s*/i, '').replace(/
+```\s*$/, '').trim();
                 const parsedData = JSON.parse(cleanText);
                 let fullItemsList = [];
-                const groupsArray = Array.isArray(parsedData.groups) ? parsedData.groups : [];
                 
-                groupsArray.forEach(g => {
-                    const totalItemsCount = g.plateCount * g.itemPerPlateCount;
-                    for(let k = 0; k < totalItemsCount; k++) {
+                parsedData.groups.forEach(g => {
+                    for(let k = 0; k < (g.plateCount * g.itemPerPlateCount); k++) {
                         fullItemsList.push(g.itemType);
                     }
                 });
 
                 currentOrderData = {
-                    displayStory: parsedData.displayStory || "Could I get some food arranged on plates?",
-                    rawGroups: groupsArray,
+                    displayStory: parsedData.displayStory,
+                    rawGroups: parsedData.groups,
                     expectedItemsList: fullItemsList,
-                    totalCost: typeof parsedData.totalCost === 'number' ? parsedData.totalCost : 5
+                    totalCost: parsedData.totalCost
                 };
                 
                 orderTextElement.innerHTML = `<strong>Customer says:</strong> "${currentOrderData.displayStory}"`;
@@ -408,20 +357,61 @@
                 
                 document.getElementById('chatLog').innerHTML = '<p style="color: #888;">AI customer messages will appear here.</p>';
                 appendChatMessage("Customer", currentOrderData.displayStory);
-                
-                // Start the round countdown now that everything is fully rendered
                 startNewRoundTimer();
             } catch(e) {
-                orderTextElement.innerHTML = `<strong style="color:red;">Parse Error!</strong><br><pre>${aiResponse}</pre>`;
-                console.error(e);
+                orderTextElement.innerHTML = `Parse Error. Click regenerate.`;
             }
         }
 
-        // --- MATH AND LAYOUT VALIDATION LOOP ---
-        function checkOrderAndMath() {
-            // Pause countdown during evaluation alert prompt focus state
-            clearInterval(gameTimerInterval);
+        // --- DYNAMICALLY HANDLE CHAT AND IN-GAME MODIFICATIONS ---
+        async function sendChatMessage() {
+            const inputEl = document.getElementById('chatInput');
+            const chatBtn = document.getElementById('send-chat-btn');
+            const message = inputEl.value.trim();
+            if(!message) return;
 
+            chatBtn.disabled = true;
+            appendChatMessage("You", message);
+            inputEl.value = '';
+
+            const aiReplyString = await callGemini(message, true);
+            chatBtn.disabled = false;
+
+            try {
+                let cleanReply = aiReplyString.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
+                const chatData = JSON.parse(cleanReply);
+                
+                appendChatMessage("Customer", chatData.reply);
+
+                // Check if the AI agreed to change its order mid-game
+                if (chatData.didModifyOrder && chatData.addedGroup) {
+                    const group = chatData.addedGroup;
+                    
+                    // 1. Inject the new group structure parameters into the state track
+                    currentOrderData.rawGroups.push(group);
+                    currentOrderData.totalCost += chatData.addedCost;
+                    
+                    // 2. Append items to our sorting calculation string checklist
+                    for (let i = 0; i < (group.plateCount * group.itemPerPlateCount); i++) {
+                        currentOrderData.expectedItemsList.push(group.itemType);
+                    }
+
+                    // 3. Sprout the extra physical droppable plate nodes instantly
+                    for (let p = 0; p < group.plateCount; p++) {
+                        appendSinglePlateToContainer();
+                    }
+
+                    // 4. Update the visual narrative header so the player remembers what was added
+                    document.getElementById('order-text').innerHTML += `<br><span style="color: #0070f3;"><strong>Update:</strong> Added ${group.plateCount} plates of ${group.itemPerPlateCount} ${group.itemType}(s)!</span>`;
+                }
+            } catch (e) {
+                console.error("Chat Action JSON Parse Drop:", e);
+                appendChatMessage("Customer", "Sure thing!");
+            }
+        }
+
+        function checkOrderAndMath() {
+            clearInterval(gameTimerInterval);
             const playerPrice = parseInt(document.getElementById('player-math').value);
             const isMathCorrect = (playerPrice === currentOrderData.totalCost);
             
@@ -435,65 +425,19 @@
             const isTrayCorrect = JSON.stringify(expectedSorted) === JSON.stringify(actualSorted);
 
             if (isMathCorrect && isTrayCorrect) {
-                totalWins++;
-                currentStreak++;
-                updateScoreHUD();
-                
-                // Clicking "OK" here instantly fires the refresh function sequence!
-                alert(`🎉 Excellent! Every plate layout is served perfectly and your multiplication price match is correct!\n\nStreak increased to ${currentStreak}! Let's check out the next order.`);
+                totalWins++; currentStreak++; updateScoreHUD();
+                alert(`🎉 Excellent! Grouped order matching is perfect!`);
                 generateAIOrder(); 
             } else {
-                currentStreak = 0;
-                updateScoreHUD();
-                
-                let errorMsg = "Oops! Check your work:\n";
-                if(!isTrayCorrect) errorMsg += `- Total food items distributed on your plates do not match the customer's request.\n`;
-                if(!isMathCorrect) errorMsg += `- Your final grouped multiplication price math is incorrect.\n`;
-                errorMsg += `\nStreak reset to 0! Try again to build your streak back up!`;
-                alert(errorMsg);
-                
-                // Resume whatever time was remaining if they failed but still have ticks left
-                if (secondsRemaining > 0) {
-                    gameTimerInterval = setInterval(() => {
-                        secondsRemaining--;
-                        document.getElementById('timer-countdown').innerText = secondsRemaining;
-                        if (secondsRemaining <= 0) {
-                            clearInterval(gameTimerInterval);
-                            handleTimeOutLoss();
-                        }
-                    }, 1000);
-                } else {
-                    generateAIOrder();
-                }
+                currentStreak = 0; updateScoreHUD();
+                alert(`Oops! Plate layouts or multiplication price total ($${currentOrderData.totalCost}) do not match.`);
+                generateAIOrder();
             }
         }
 
         function updateScoreHUD() {
             document.getElementById('total-wins-count').innerText = totalWins;
             document.getElementById('current-streak-count').innerText = currentStreak;
-        }
-
-        async function sendChatMessage() {
-            const inputEl = document.getElementById('chatInput');
-            const chatBtn = document.getElementById('send-chat-btn');
-            const message = inputEl.value.trim();
-            if(!message) return;
-
-            chatBtn.disabled = true;
-            appendChatMessage("You", message);
-            inputEl.value = '';
-
-            const prompt = `You are a customer sitting at a table waiting for your plate order. A student waiter is practicing English.
-            They just said: "${message}". Respond naturally as a diner customer. Max 2 sentences.`;
-
-            const aiReply = await callGemini(prompt);
-            chatBtn.disabled = false;
-
-            if(aiReply) {
-                appendChatMessage("Customer", aiReply.trim());
-            } else {
-                appendChatMessage("System", "Customer didn't hear you. Try again.");
-            }
         }
 
         function appendChatMessage(sender, text) {
