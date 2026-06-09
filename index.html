@@ -76,7 +76,7 @@
 
     <script>
         // --- PROXY BACKEND CONFIGURATION ---
-        const VERCEL_PROXY_URL = 'https://game1-woad-beta.vercel.app/';
+        const VERCEL_PROXY_URL = 'https://game1-woad-beta.vercel.app/api/chat'';
 
         // --- GAME STATE ---
         let currentOrderData = { items: [], totalCost: 0 };
@@ -151,8 +151,7 @@
             if (!aiResponse) return;
 
             try {
-                const cleanedResponse = aiResponse.replace(/```json|
-```/g, "").trim();
+                const cleanedResponse = aiResponse.replace(/```json|```/g, "").trim();
                 currentOrderData = JSON.parse(cleanedResponse);
                 
                 orderTextElement.innerHTML = `<strong>Customer says:</strong> "${currentOrderData.displayStory}"`;
