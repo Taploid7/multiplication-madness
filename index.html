@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Cafe Simulator</title>
+</head>
+<body>
+
+    <header>
+        <h1>AI Cafe Simulator</h1>
+        <p>Practice multiplication and English conversation simultaneously!</p>
+        <!-- Start Game Button -->
+        <button id="start-game-btn" onclick="openWelcomeDialog()">Start Game</button>
+    </header>
+
+    <hr>
+
+    <!-- Welcome Dialogue Box (Pop-up Window) -->
+    <dialog id="welcome-dialog">
+        <h2>Welcome to my Multiplication Game</h2>
+        <p>In this game, you will act as a waiter.</p>
+        <ul>
+            <li>Listen to the Customer's order in English.</li>
+            <li>Drag and drop the correct food items onto the tray.</li>
+            <li>Calculate the total price correctly to practice your multiplication.</li>
+            <li>Chat with the customer in English to keep them happy!</li>
+        </ul>
+        <button onclick="closeWelcomeDialog()">Let's Play!</button>
+    </dialog>
+
+    <!-- Main Game UI -->
+    <main>
+        <!-- Left Side: Order & Kitchen Management -->
+        <section>
+            <h2>1. The Customer Order</h2>
+            <div id="order-text"><em>Click "Generate Order" to start...</em></div>
+            <button onclick="generateAIOrder()">Generate AI Order</button>
+
+            <h2>2. Assemble Order (Drag & Drop)</h2>
+            <!-- Draggable Vault -->
+            <div>
+                <div class="draggable-item" draggable="true" data-item="Burger" style="border: 1px solid black; display: inline-block; padding: 5px; margin: 5px; cursor: grab;">🍔 Burger ($5)</div>
+                <div class="draggable-item" draggable="true" data-item="Fries" style="border: 1px solid black; display: inline-block; padding: 5px; margin: 5px; cursor: grab;">🍟 Fries ($3)</div>
+                <div class="draggable-item" draggable="true" data-item="Soda" style="border: 1px solid black; display: inline-block; padding: 5px; margin: 5px; cursor: grab;">🥤 Soda ($2)</div>
+            </div>
+
+            <!-- Drop Zone Area -->
+            <div id="serving-tray" style="border: 2px dashed gray; min-height: 50px; margin: 15px 0; padding: 10px;">
+                Drop items here to serve!
+            </div>
+            
+            <!-- Math Calculation Area -->
+            <div>
+                <h2>3. Calculate Total Price</h2>
+                <label for="player-math">Total Price ($): </label>
+                <input type="number" id="player-math" placeholder="Your calculation">
+                <button onclick="checkOrderAndMath()">Submit Order</button>
+            </div>
+        </section>
+
+        <hr>
+
+        <!-- Right Side: AI Chat/English Scenarios -->
+        <section>
+            <h2>Customer Conversation</h2>
+            <div id="chatLog" style="border: 1px solid black; height: 150px; overflow-y: scroll; padding: 10px; margin-bottom: 10px;">
+                <p style="color: #888;">AI customer messages will appear here.</p>
+            </div>
+            <div>
+                <input type="text" id="chatInput" placeholder="Talk to the customer..." onkeypress="if(event.key === 'Enter') sendChatMessage()">
+                <button onclick="sendChatMessage()">Send</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- PROXY BACKEND CONFIGURATION ---
+        const VERCEL_PROXY_URL = 'https://game1-woad-beta.vercel.app/';
+
+        // --- GAME STATE ---
+        let currentOrderData = { items: [], totalCost: 0 };
+        let trayItems = [];
+
+        // --- DIALOG / WINDOW LOGIC ---
+        const dialog = document.getElementById('welcome-dialog');
+
+        function openWelcomeDialog() {
+            dialog.showModal(); // Opens the dialog block natively as a pop-up window
+        }
+
+        function closeWelcomeDialog() {
+            dialog.close(); // Closes the dialog box
+            generateAIOrder(); // Automatically trigger the first order when they start
+        }
+
+        // --- DRAG AND DROP LOGIC ---
+        const draggables = document.querySelectorAll('.draggable-item');
+        const dropZone = document.getElementById('serving-tray');
+
+        draggables.forEach(draggable => {
+            draggable.addEventListener('dragstart', () => draggable.classList.add('dragging'));
+            draggable.addEventListener('dragend', () => draggable.classList.remove('dragging'));
+        });
+
+        dropZone.addEventListener('dragover', e => {
+            e.preventDefault();
+        });
+
+        dropZone.addEventListener('drop', e => {
+            e.preventDefault();
+            const draggingItem = document.querySelector('.dragging');
+            if (!draggingItem) return;
+            
+            const itemType = draggingItem.getAttribute('data-item');
+            trayItems.push(itemType);
+            
+            if(dropZone.innerText.includes("Drop items here")) dropZone.innerText = "";
+            dropZone.innerHTML += `<span style="border: 1px solid gray; padding: 2px; margin-right: 5px; background: #eee;">${itemType}</span>`;
+        });
+
+        // --- VERCEL PROXY AI API COMMUNICATION ---
+        async function callGemini(promptText) {
+            try {
+                const response = await fetch(VERCEL_PROXY_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ promptText: promptText })
+                });
+                
+                const data = await response.json();
+                return data.candidates[0].content.parts[0].text;
+            } catch (error) {
+                console.error("Proxy Error:", error);
+                return "Error connecting to AI via backend proxy.";
+            }
+        }
+
+        // --- GAME ACTIONS ---
+        async function generateAIOrder() {
+            const orderTextElement = document.getElementById('order-text');
+            orderTextElement.innerHTML = "<em>Customer is thinking...</em>";
+            
+            const prompt = `You are a customer ordering food at a basic cafe. 
+            Choose a random combination of: Burgers ($5 each), Fries ($3 each), and Soda ($2 each).
+            Format your response exactly like this JSON layout so my code can parse it:
+            {"displayStory": "Hi! Can I get 3 Burgers and 2 Sodas please?", "items": ["Burger", "Burger", "Burger", "Soda", "Soda"], "totalCost": 19}
+            Do not include markdown code block formatting (like \`\`\`json). Just the raw object text.`;
+
+            const aiResponse = await callGemini(prompt);
+            if (!aiResponse) return;
+
+            try {
+                const cleanedResponse = aiResponse.replace(/```json|
+```/g, "").trim();
+                currentOrderData = JSON.parse(cleanedResponse);
+                
+                orderTextElement.innerHTML = `<strong>Customer says:</strong> "${currentOrderData.displayStory}"`;
+                
+                // Reset game board
+                trayItems = [];
+                dropZone.innerHTML = "Drop items here to serve!";
+                document.getElementById('player-math').value = '';
+                
+                appendChatMessage("Customer", currentOrderData.displayStory);
+            } catch(e) {
+                orderTextElement.innerHTML = "Failed to parse AI response. Try generating again.";
+                console.log("Failed parsing: ", aiResponse);
+            }
+        }
+
+        function checkOrderAndMath() {
+            const playerPrice = parseInt(document.getElementById('player-math').value);
+            const isMathCorrect = (playerPrice === currentOrderData.totalCost);
+            
+            const expectedItems = [...currentOrderData.items].sort();
+            const actualItems = [...trayItems].sort();
+            const isTrayCorrect = JSON.stringify(expectedItems) === JSON.stringify(actualItems);
+
+            if (isMathCorrect && isTrayCorrect) {
+                alert("🎉 Excellent! Correct items served and exact price calculated perfectly!");
+            } else {
+                let errorMsg = "Oops! Check your work:\n";
+                if(!isTrayCorrect) errorMsg += `- The items in the tray don't match the order.\n`;
+                if(!isMathCorrect) errorMsg += `- Your price calculation is incorrect.\n`;
+                alert(errorMsg);
+            }
+        }
+
+        async function sendChatMessage() {
+            const inputEl = document.getElementById('chatInput');
+            const message = inputEl.value.trim();
+            if(!message) return;
+
+            appendChatMessage("You", message);
+            inputEl.value = '';
+
+            const prompt = `You are a customer at a cafe. A student is practicing English with you. 
+            They just said: "${message}". Respond nicely as a customer, keeping your vocabulary suitable for an English learner. Max 2 sentences.`;
+
+            const aiReply = await callGemini(prompt);
+            if(aiReply) appendChatMessage("Customer", aiReply.trim());
+        }
+
+        function appendChatMessage(sender, text) {
+            const log = document.getElementById('chatLog');
+            log.innerHTML += `<p><strong>${sender}:</strong> ${text}</p>`;
+            log.scrollTop = log.scrollHeight;
+        }
+    </script>
+</body>
+</html>
