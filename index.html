@@ -110,7 +110,6 @@
             
             if(dropZone.innerText.includes("Drop items here")) dropZone.innerText = "";
             
-            // Render tray item elements with class tagging for selection cleanup hooks
             dropZone.innerHTML += `<span class="tray-item" data-item="${itemType}" style="border: 1px solid gray; padding: 2px 6px; margin-right: 5px; background: #eee; cursor: pointer; display: inline-block; border-radius: 4px;" title="Click to remove">× ${itemType}</span>`;
         });
 
@@ -121,13 +120,11 @@
 
             const itemType = clickedSpan.getAttribute('data-item');
             
-            // Delete exactly 1 historical index match instance of that value item inside data arrays
             const targetIndex = trayItems.indexOf(itemType);
             if (targetIndex > -1) {
                 trayItems.splice(targetIndex, 1);
             }
 
-            // Remove visual selector token container item right off browser screen viewports
             clickedSpan.remove();
 
             if (trayItems.length === 0) {
@@ -146,7 +143,6 @@
                 
                 const data = await response.json();
                 
-                // Read clean unified data outputs sent directly from your custom Vercel handler
                 if (data.text) return data.text;
                 if (data.reply) return data.reply;
                 return typeof data === 'string' ? data : JSON.stringify(data);
@@ -161,20 +157,17 @@
             const orderTextElement = document.getElementById('order-text');
             const genBtn = document.getElementById('generate-order-btn');
             
-            // Engage rate-limiting input locks
             genBtn.disabled = true;
             orderTextElement.innerHTML = "<em>Customer is thinking...</em>";
             
             const prompt = `You are a customer ordering food at a basic cafe.
             Choose a random combination of food options: Burgers ($5 each), Fries ($3 each), and Soda ($2 each).
-            You MUST respond with a single, raw valid JSON object. Do not include introductory text. Do not wrap it in markdown block tags like \`\`\`json.
+            You MUST respond with a single, raw valid JSON object. Do not include introductory text. Do not wrap it in markdown block tags.
             
             Use this exact key structural layout:
             {"displayStory": "Hello! Could I get 2 Burgers and a Soda please?", "items": ["Burger", "Burger", "Soda"], "totalCost": 12}`;
 
             const aiResponse = await callGemini(prompt);
-            
-            // Release rate-limiting input locks
             genBtn.disabled = false;
 
             if (!aiResponse) {
@@ -185,7 +178,7 @@
             try {
                 let cleanText = aiResponse.trim();
                 
-                // Advanced Markdown Stripper: Safely clean out any markdown notation layers leaks
+                // Clean out any standard markdown wrapper leaks
                 cleanText = cleanText.replace(/^```json\s*/i, '').replace(/```\s*$/, '').trim();
                 
                 // Isolate structural bracket syntax data windows
@@ -197,7 +190,6 @@
 
                 const parsedData = JSON.parse(cleanText);
                 
-                // Property Normalization Layer Maps
                 currentOrderData = {
                     displayStory: parsedData.displayStory || "Hello! I'd like to place an order.",
                     items: Array.isArray(parsedData.items) ? parsedData.items : ["Burger"],
@@ -206,16 +198,18 @@
                 
                 orderTextElement.innerHTML = `<strong>Customer says:</strong> "${currentOrderData.displayStory}"`;
                 
-                // Refresh game dashboard panels
                 trayItems = [];
                 dropZone.innerHTML = "Drop items here to serve!";
                 document.getElementById('player-math').value = '';
                 
-                // Reset conversation container with clean layout frame
                 document.getElementById('chatLog').innerHTML = '<p style="color: #888;">AI customer messages will appear here.</p>';
                 appendChatMessage("Customer", currentOrderData.displayStory);
             } catch(e) {
-                orderTextElement.innerHTML = "Failed to parse AI response string data formats. Click 'Generate AI Order' to retry.";
+                // BUG CATCHER OVERRIDE: Prints the exact problematic string on your webpage
+                orderTextElement.innerHTML = `<strong style="color:red;">Parse Error!</strong><br>
+                <strong>What Gemini actually sent:</strong><br> 
+                <pre style="background: #fee; padding: 10px; border: 1px solid red; white-space: pre-wrap; text-align: left; font-family: monospace;">${aiResponse}</pre>
+                Please click 'Generate AI Order' to try again.`;
                 console.error("Raw Response Parse Dump:", aiResponse);
             }
         }
@@ -244,7 +238,6 @@
             const message = inputEl.value.trim();
             if(!message) return;
 
-            // Engage rate-limiting input locks
             chatBtn.disabled = true;
             appendChatMessage("You", message);
             inputEl.value = '';
@@ -253,8 +246,6 @@
             They just said: "${message}". Respond nicely as a customer, keeping your vocabulary suitable for an English learner. Max 2 sentences.`;
 
             const aiReply = await callGemini(prompt);
-            
-            // Release rate-limiting input locks
             chatBtn.disabled = false;
 
             if(aiReply) {
