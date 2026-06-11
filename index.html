@@ -75,7 +75,6 @@
             box-shadow: 0 1px 0 var(--dark-steel);
         }
 
-        /* Scoreboard HUD */
         .score-dashboard {
             display: flex;
             justify-content: center;
@@ -277,7 +276,7 @@
             width: 100%;
             height: 100%;
             object-fit: cover;
-            object-position: top; /* UPDATED: Shifts framing up to capture the kid's face */
+            object-position: top;
         }
 
         .chat-container-box {
@@ -337,7 +336,7 @@
             <button id="generate-order-btn" onclick="generateAIOrder()">🛎️ Bring in a Customer!</button>
 
             <br>
-		<br><div></div>
+	<div></div><br>
             <h2>2. Put Food on the Plates!</h2>
             <div class="menu-items-container">
                 <div class="draggable-item" draggable="true" data-item="Burger">🍔 Burger ($5)</div>
@@ -542,7 +541,6 @@
             const aiResponse = await callGemini(prompt, false);
             genBtn.disabled = false;
 
-            // UPDATED: Added safety check to scrub API errors from the layout
             if (!aiResponse || aiResponse.includes("Google API Error") || aiResponse.includes("experiencing high demand")) {
                 handleGenerationFailure();
                 return;
@@ -578,7 +576,6 @@
             }
         }
 
-        // UPDATED: In-character clean fallback function for resource limits
         function handleGenerationFailure() {
             const orderTextElement = document.getElementById('order-text');
             currentOrderData = {
@@ -608,7 +605,6 @@
             const aiReplyString = await callGemini(message, true);
             chatBtn.disabled = false;
 
-            // UPDATED: Clean conversation response handling for API overload periods
             if (!aiReplyString || aiReplyString.includes("Google API Error") || aiReplyString.includes("experiencing high demand")) {
                 appendChatMessage("Customer", "Give me a second, the diner is pretty crowded right now!");
                 return;
